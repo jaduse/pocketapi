@@ -2,7 +2,7 @@
 Pocket API for Python 3
 
 ##Usage:
-At first, you will need and application token. Get your own at http://getpocket.com/developer/apps/new
+At first, you will need a consumer key. Get your own at http://getpocket.com/developer/apps/new
 
 Simple get method
 
