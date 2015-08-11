@@ -1,3 +1,10 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+# 
+# Version: Python 3
+# License: MIT
+# Author: jaduse
+
 import urllib.request
 import urllib.response
 import urllib.parse
@@ -123,7 +130,7 @@ class Pocket(object):
                         self.redirect_uri
                     )
 
-        print("{0} {1}\n".format(
+        print("{} {}\n".format(
                     ("Please allow application access to your"
                      " acc and then pres enter:"), login_url
             )
