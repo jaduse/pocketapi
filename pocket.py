@@ -118,7 +118,6 @@ class Pocket(object):
             "username": username
         }
 
-
     def login(self):
         req_code = self.get_request()
         if not req_code:
@@ -136,7 +135,7 @@ class Pocket(object):
             )
         )
         input()
-        
+
         access_user_code = self.get_access(req_code)
 
         if not access_user_code:
