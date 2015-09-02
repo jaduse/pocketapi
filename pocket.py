@@ -1,10 +1,3 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-# 
-# Version: Python 3
-# License: MIT
-# Author: jaduse
-
 import urllib.request
 import urllib.response
 import urllib.parse
@@ -19,19 +12,17 @@ class Pocket(object):
     Pocket object
 
     statics:
-        CONSUMER_KEY: consumer key given from http://getpocket.com/developer
         OAUTH_METHODS: authentication methods for OAuth
         API_URL: base url for all api calls
         API_METHODS: api calls
 
     object:
         Pocket(self,
-            config (dict): configuration of access_token and username,
-                            both can be stored in file
+            config (dict): configuration of consumer_key, access_token 
+                            and username, both can be stored in file
             redirect_uri (str): path for redirection after authentication
 
     """
-    CONSUMER_KEY = "PUT YOUR KEY HERE"
     OAUTH_METHODS = {"request": "https://getpocket.com/v3/oauth/request",
                      "auth": "https://getpocket.com/v3/oauth/authorize"}
     API_URL = "https://getpocket.com/v3/"
@@ -40,30 +31,27 @@ class Pocket(object):
     def __init__(
             self,
             config=None,
-            redirect_uri="http://getpocket.com"
+            redirect_uri=(
+                "https://www.googledrive.com/host/"
+                "0B3AlooTOdshyUi02M3V3UWVCdzA")
     ):
         self.config = config
         self.redirect_uri = redirect_uri
 
     def __repr__(self):
-        return "Pocket(config={},redirect_uri={})".format(
-            self.config,
-            self.redirect_uri
-        )
+        return "Pocket(config={0},redirect_uri={1})".format(
+            self.config, self.redirect_uri)
 
     """
     OAuth
     -----
 
-    get_request: requesting for request token, returns False on fail
+    get_request: requesting for request token
 
-    get_access: requesting for access token, returns False on fail
+    get_access: requesting for access token
                 req_code (str): request code from get_request,
                 returns dict on success, include username and 
                 access token
-
-    login: whole auth routine, asks for user to approve application
-            in browser, return False on fail
 
     See more: http://getpocket.com/developer/docs/authentication
     """
@@ -71,79 +59,47 @@ class Pocket(object):
         req_opener = urllib.request.build_opener()
         req_params = urllib.parse.urlencode(
             {
-                "consumer_key": self.CONSUMER_KEY,
+                "consumer_key": self.config["consumer_key"],
                 "redirect_uri": self.redirect_uri
-            }
-        ).encode("ascii")
+            }).encode("ascii")
 
         request = urllib.request.Request(
             self.OAUTH_METHODS["request"],
-            data=req_params
-        )
+            data=req_params)
+
         response = req_opener.open(request)
 
-        if response.code != 200:
-            return False
+        if response.code == 200:
+            response_fp = response.fp.readline()
+            req_code = urllib.parse.parse_qs(response_fp)[b"code"][0]
 
-        response_fp = response.fp.readline()
-        req_code = urllib.parse.parse_qs(response_fp)[b"code"][0]
-
-        return req_code.decode("utf-8")
+            return req_code.decode("utf-8")
 
     def get_access(self, req_code):
         auth_opener = urllib.request.build_opener()
         auth_params = urllib.parse.urlencode(
             {
-                "consumer_key": self.CONSUMER_KEY,
+                "consumer_key": self.config["consumer_key"],
                 "code": req_code
-            }
-        ).encode("ascii")
+            }).encode("ascii")
 
         request = urllib.request.Request(
             self.OAUTH_METHODS["auth"],
-            data=auth_params
-        )
+            data=auth_params)
+
         response = auth_opener.open(request)
 
-        if response.code != 200:
-            return False
+        if response.code == 200:
+            response_fp = response.fp.readline()
+            res_parsed = urllib.parse.parse_qs(response_fp)
+            username = res_parsed[b"username"][0].decode("utf-8")
+            access_token = res_parsed[b"access_token"][0].decode("utf-8")
 
-        response_fp = response.fp.readline()
-        res_parsed = urllib.parse.parse_qs(response_fp)
-        username = res_parsed[b"username"][0].decode("utf-8")
-        access_token = res_parsed[b"access_token"][0].decode("utf-8")
+            return {
+                "access_token": access_token,
+                "username": username
+            }
 
-        return {
-            "access_token": access_token,
-            "username": username
-        }
-
-    def login(self):
-        req_code = self.get_request()
-        if not req_code:
-            raise PocketException("Failed to obtain request code")
-
-        login_url = ("https://getpocket.com/auth/authorize?"
-                     "request_token={}&redirect_uri={}").format(
-                        req_code,
-                        self.redirect_uri
-                    )
-
-        print("{} {}\n".format(
-                    ("Please allow application access to your"
-                     " acc and then pres enter:"), login_url
-            )
-        )
-        input()
-
-        access_user_code = self.get_access(req_code)
-
-        if not access_user_code:
-            raise PocketException("Failed to obtain access code")
-
-        self.config = access_user_code
-
-        return True
 
     """
     Requesting api
@@ -176,14 +132,11 @@ class Pocket(object):
 
     """
     def method(self, query, method_type):
-        if not isinstance(query, dict):
-            return False
-
-        query["consumer_key"] = self.CONSUMER_KEY
+        query["consumer_key"] = self.config["consumer_key"]
         query["access_token"] = self.config["access_token"]
         params = json.dumps(query).encode("ascii")
 
-        req_url = "{}{}".format(self.API_URL, method_type)
+        req_url = "{0}{1}".format(self.API_URL, method_type)
         req_query = urllib.request.build_opener()
         req_headers = {"Content-Type": "application/json"}
         request = urllib.request.Request(
@@ -196,8 +149,7 @@ class Pocket(object):
             response = req_query.open(request)
 
         except urllib.error.HTTPError as err:
-            print("{0}\n".format(err), file=sys.stderr)
-            return False
+            raise PocketException(err)
 
         return PocketResponse(response)
 
@@ -208,8 +160,7 @@ class Pocket(object):
         def query_callback(**kwargs):
             if not hasattr(self, method):
                 raise PocketException(
-                    "Wrong method type. Allowed are get, add, send"
-                )
+                    "Wrong method type. Allowed are get, add, send")
 
             callback = getattr(self, method)
             query.update(kwargs)
@@ -260,14 +211,32 @@ class PocketResponse(object):
 
     def __init__(self, response):
         self.code = response.code
-        self.method = urllib.parse.urlparse(
-            response.url).path.split("/")[-1]
-        self.data = json.loads(
-            response.read().decode("utf-8")
-        )
+        self.method = urllib.parse.urlparse(response.url).path.split("/")[-1]
+        self.data = json.loads(response.read().decode("utf-8"))
 
     def __getitem__(self, key):
         if key not in self.data:
             raise PocketException(KeyError)
 
         return self.data[key]
+
+
+class PocketUtils(object):
+
+    def parser(url):
+        req_url = "http://text.getpocket.com/v3beta/mobile" # HACK!
+        req_query = urllib.request.build_opener()
+        params = urllib.parse.urlencode({"url": url})
+        request = urllib.request.Request(
+            req_url,
+            data=params.encode("ascii"))
+        
+        try:
+            response = req_query.open(request)
+
+        except urllib.error.HTTPError as err:
+            raise PocketException(err)
+        
+        return PocketResponse(response)
+
+
