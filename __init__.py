@@ -220,6 +220,9 @@ class PocketResponse(object):
 
         return self.data[key]
 
+    def __iter__(self):
+        return next(self.data)
+
 
 class PocketUtils(object):
 
